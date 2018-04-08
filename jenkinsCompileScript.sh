@@ -464,9 +464,12 @@ function mainOfJenkinsCompile() {
     
     if [ "${gitRepoUrl:0:4}" == "git@" ]; then
         git clone -b "$branch" "${gitRepoUrl}" || { echo "git clone(SSH) failed"; return 1; }
-    else
+    elif [ "${gitRepoUrl:0:8}" == "https://" ]; then
         [ -z "$gitHttpAuth" ] && { echo "git http auth is empty"; return 1; }
         git clone -b "$branch" "https://${gitHttpAuth}@${gitRepoUrl}" || { echo "git clone(HTTPS) failed"; return 1; }
+    elif [ "${gitRepoUrl:0:7}" == "http://" ]; then
+        [ -z "$gitHttpAuth" ] && { echo "git http auth is empty"; return 1; }
+        git clone -b "$branch" "http://${gitHttpAuth}@${gitRepoUrl}" || { echo "git clone(HTTP) failed"; return 1; }
     fi
     
     local projectName=$(ls)
