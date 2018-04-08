@@ -154,37 +154,36 @@ function trim() {
     }'
 }
 
-### 说明：当前只支持Android
-### 说明：APP_ID, APP_NAME, APP_VERSION, APP_BUILD实际上可以根据apk自动读取，但因脚本无外部依赖，因此还需要外部传入
-### 说明：APP_NAME, APP_VERSION, APP_BUILD, APP_CHANGELOG只用于展示，如果不填写，不影响使用，只不过下载页会缺少这些信息
+### 说明： 当前只支持Android
+### 说明： appId, appName, appVersion, appBuild 实际上可以根据apk自动读取，但因脚本无外部依赖，因此还需要外部传入
+### 说明： appName, appVersion, appBuild, appChangelog 只用于展示，如果不填写，不影响使用，只不过下载页会缺少这些信息
 ### @author lux feary
 ###
-### 8 params: APP_FILE, FIR_API_TOKEN, APP_ID, APP_NAME, APP_VERSION, APP_BUILD, APP_ICON, APP_CHANGELOG
+### 8 params: appFile, apiToken, appId, appName, appVersion, appBuild, appIcon, appChangelog
 ### output variable: 
 ###     - FIR_RESULT
 ###     - FIR_SHORT_URL
 ###     - FIR_DIRECT_URL
 function apiUploadToFir() {
-    local APP_FILE=$1
-    local FIR_API_TOKEN=$2
+    local appFile="$1"
+    local apiToken="$2"
 
-    local APP_ID="$3"
-    local APP_NAME="${4:-$3}"
-    local APP_VERSION="${5:-1.0.0}"
-    local APP_BUILD="${6:-1}"
-    local APP_ICON="$7"
-    local APP_CHANGELOG="${8}"
+    local appId="$3"
+    local appName="${4:-$3}"
+    local appVersion="${5:-1.0.0}"
+    local appBuild="${6:-1}"
+    local appIcon="$7"
+    local appChangelog="${8}"
 
     unset FIR_RESULT
     unset FIR_SHORT_URL
     unset FIR_DIRECT_URL
 
-    local FIR_APP_TYPE="android"
-
-    [ "${APP_FILE:${#APP_FILE}-4}" == ".apk" ] || { echo "only Android is supported now"; return 1; }
+    [ "${appFile:${#appFile}-4}" == ".apk" ] || { echo "only Android is supported now"; return 1; }
+    local firAppType="android"
 
     echo "Fetching fir.im upload token..."
-    local resultJson=$(curl -X "POST" "https://api.fir.im/apps" -H "Content-Type: application/json" -d "{\"type\":\"${FIR_APP_TYPE}\", \"bundle_id\":\"${APP_ID}\", \"api_token\":\"${FIR_API_TOKEN}\"}" 2>/dev/null)
+    local resultJson=$(curl -X "POST" "https://api.fir.im/apps" -H "Content-Type: application/json" -d "{\"type\":\"${firAppType}\", \"bundle_id\":\"${appId}\", \"api_token\":\"${apiToken}\"}" 2>/dev/null)
 
     ### parse the 1st layer
     local formMethod=$(getJsonValuesByAwk "$resultJson" "form_method" "POST" | trim '"')
@@ -192,7 +191,7 @@ function apiUploadToFir() {
     local cert="$(getJsonValuesByAwk "$resultJson" "cert")"
 
     [ -n "$shortUrl" ] || { 
-        echo "Fetch upload token failed, please check your fir api token: $FIR_API_TOKEN"
+        echo "Fetch upload token failed, please check your fir api token: $apiToken"
         export FIR_RESULT="$resultJson"
         return 1
     }
@@ -213,12 +212,12 @@ function apiUploadToFir() {
     local binary_token=$(getJsonValuesByAwk "$cert_binary" "token" | trim '"')
     local binary_uploadUrl=$(getJsonValuesByAwk "$cert_binary" "upload_url" | trim '"')
 
-    if [ -n "$APP_ICON" ]; then
+    if [ -n "$appIcon" ]; then
         echo "Uploading icon to ${icon_uploadUrl}..."
-        local resultJson=$(curl "$APP_ICON" 2>/dev/null | curl --progress-bar -X "$formMethod" -F "key=${icon_key}" -F "token=${icon_token}" -F "file=@-" ${icon_uploadUrl})
+        local resultJson=$(curl "$appIcon" 2>/dev/null | curl --progress-bar -X "$formMethod" -F "key=${icon_key}" -F "token=${icon_token}" -F "file=@-" ${icon_uploadUrl})
         local isCompleted="$(getJsonValuesByAwk "$resultJson" "is_completed")"
         if [[ "$isCompleted" == "true" ]]; then
-            echo "Upload icon success: $APP_ICON"
+            echo "Upload icon success: $appIcon"
         else
             echo "Upload icon failed, it doesn't matter much that only the icon is default"
         fi
@@ -234,11 +233,11 @@ function apiUploadToFir() {
 
         local checkIconPath;
         for checkIconPath in ${checkIcons[@]}; do
-            unzip -l "$APP_FILE" "$checkIconPath" >/dev/null && break;
+            unzip -l "$appFile" "$checkIconPath" >/dev/null && break;
         done
 
         if [ -n "$checkIconPath" ]; then
-            local resultJson=$(unzip -p ${APP_FILE} "$checkIconPath" | curl --progress-bar -X "$formMethod" -F "key=${icon_key}" -F "token=${icon_token}" -F "file=@-" ${icon_uploadUrl})
+            local resultJson=$(unzip -p ${appFile} "$checkIconPath" | curl --progress-bar -X "$formMethod" -F "key=${icon_key}" -F "token=${icon_token}" -F "file=@-" ${icon_uploadUrl})
             local isCompleted="$(getJsonValuesByAwk "$resultJson" "is_completed")"
             if [[ "$isCompleted" == "true" ]]; then
                 echo "Upload icon success: $checkIconPath"
@@ -251,7 +250,7 @@ function apiUploadToFir() {
     fi
 
     echo "Uploading Apk to ${binary_uploadUrl}..."
-    local resultJson="$(curl --progress-bar -X "$formMethod" -F "key=${binary_key}" -F "token=${binary_token}" -F "file=@${APP_FILE}" -F "${cert_prefix}name=${APP_NAME}" -F "${cert_prefix}version=${APP_VERSION}" -F "${cert_prefix}build=${APP_BUILD}" -F "${cert_prefix}changelog=${APP_CHANGELOG}" ${binary_uploadUrl})"
+    local resultJson="$(curl --progress-bar -X "$formMethod" -F "key=${binary_key}" -F "token=${binary_token}" -F "file=@${appFile}" -F "${cert_prefix}name=${appName}" -F "${cert_prefix}version=${appVersion}" -F "${cert_prefix}build=${appBuild}" -F "${cert_prefix}changelog=${appChangelog}" ${binary_uploadUrl})"
     local isCompleted=$(getJsonValuesByAwk "$resultJson" "is_completed")
     if [[ "$isCompleted" == "true" ]]; then
         export FIR_RESULT="true"
@@ -264,32 +263,32 @@ function apiUploadToFir() {
     fi
 }
 
-### 4 params: APP_FILE, API_KEY, APP_CHANGELOG, APP_PASSOWRD
+### 4 params: appFile, apiToken, appChangelog, appPassword
 ### output variable: 
 ###     - PGYER_RESULT
 ###     - PGYER_APP_NAME
-###     - PGYER_APP_VERSION_NO
+###     - PGYER_APP_BUILD
 ###     - PGYER_APP_VERSION
 ###     - PGYER_APP_PACKAGE_NAME
 ###     - PGYER_APP_ICON_URL
 ###     - PGYER_SHORT_URL
 ###     - PGYER_QRCODE_URL
 function apiUploadToPgyer() {
-    local APP_FILE="$1"
-    local API_KEY="$2"
-    local APP_CHANGELOG="$3"
-    local APP_PASSOWRD="$4"
+    local appFile="$1"
+    local apiToken="$2"
+    local appChangelog="$3"
+    local appPassword="$4"
 
     unset PGYER_RESULT
     unset PGYER_APP_NAME
-    unset PGYER_APP_VERSION_NO
+    unset PGYER_APP_BUILD
     unset PGYER_APP_VERSION
     unset PGYER_APP_PACKAGE_NAME
     unset PGYER_APP_ICON_URL
     unset PGYER_SHORT_URL
     unset PGYER_QRCODE_URL
 
-    local resultJson=$(curl --progress-bar -F "_api_key=${API_KEY}" -F "file=@${APP_FILE}" -F "buildInstallType=2" -F "buildPassword=${APP_PASSOWRD}" -F "buildUpdateDescription=${APP_CHANGELOG}" https://www.pgyer.com/apiv2/app/upload)
+    local resultJson=$(curl --progress-bar -F "_api_key=${apiToken}" -F "file=@${appFile}" -F "buildInstallType=2" -F "buildPassword=${appPassword}" -F "buildUpdateDescription=${appChangelog}" https://www.pgyer.com/apiv2/app/upload)
 
     ### example resultJson
     # local resultJson='{
@@ -322,7 +321,7 @@ function apiUploadToPgyer() {
     if [[ "$(getJsonValuesByAwk "$resultJson" "code" | trim '"')" == "0" ]]; then
         export PGYER_RESULT="true"
         export PGYER_APP_NAME="$(getJsonValuesByAwk "$resultJson" "buildName" | trim '"')"
-        export PGYER_APP_VERSION_NO="$(getJsonValuesByAwk "$resultJson" "buildVersionNo" | trim '"')"
+        export PGYER_APP_BUILD="$(getJsonValuesByAwk "$resultJson" "buildVersionNo" | trim '"')"
         export PGYER_APP_VERSION="$(getJsonValuesByAwk "$resultJson" "buildVersion" | trim '"')"
         export PGYER_APP_PACKAGE_NAME="$(getJsonValuesByAwk "$resultJson" "buildIdentifier" | trim '"')"
         export PGYER_APP_ICON_URL="https://www.pgyer.com/image/view/app_icons/$(getJsonValuesByAwk "$resultJson" "buildIcon" | trim '"')"
@@ -335,28 +334,27 @@ function apiUploadToPgyer() {
     fi
 }
 
-### 必须要定义PGYER_TOKEN，会先上传pgyer.com。上传成功后，如果有FIR_TOKEN的定义，则再上传fir.im。
-### 为什么先上传pgyer.com？ -因为fir.im需要的上传参数太多，脚本很难自动获取，而pgyer.com上传成功后刚好会返回所需上传参数。
+### 因为fir.im需要的上传参数太多，脚本很难自动获取，因此先上传到pgyer.com，利用pgyer上传成功后的返回值给fir.im的接口传参。
 function uploadApkFile() {
     local apkFile="$1"
     local appChangelog="$2"
-    local PGYER_TOKEN="$3"
-    local FIR_TOKEN="$4"
+    local pgyerToken="$3"
+    local firToken="$4"
 
-    [[ -z "$PGYER_TOKEN" ]] && { echo "PGYER_TOKEN can't be empty"; return 1; }
+    [[ -z "$pgyerToken" ]] && { echo "pgyerToken can't be empty"; return 1; }
 
     echo "APK file path: $apkFile"
 
     echo "Uploading apk to pgyer.com..."
     apiUploadToPgyer "$apkFile" \
-    "$PGYER_TOKEN" \
+    "$pgyerToken" \
     "$appChangelog"
 
     [[ "$PGYER_RESULT" == "true" ]] || { echo "Upload to pgyer failed: $PGYER_RESULT"; return 1; }
 
-    if [ -z "$FIR_TOKEN" ]; then
-        ### 不存在FIR_TOKEN，就不上传fir，仍认为是成功
-        echo "FIR_TOKEN不存在或格式不对：$FIR_TOKEN"
+    if [ -z "$firToken" ]; then
+        ### firToken为空，就不上传fir，但仍认为是上传成功
+        echo "未指定fir.im的上传token或格式不正确"
     else
         echo "Uploading apk to fir.im..."
         apiUploadToFir "$apkFile" \
@@ -364,7 +362,7 @@ function uploadApkFile() {
         "$PGYER_APP_PACKAGE_NAME" \
         "$PGYER_APP_NAME" \
         "$PGYER_APP_VERSION" \
-        "$PGYER_APP_VERSION_NO" \
+        "$PGYER_APP_BUILD" \
         "$PGYER_APP_ICON_URL" \
         "$appChangelog"
 
@@ -376,7 +374,7 @@ function uploadApkFile() {
 
     echo "==============================================================================="
     echo "appName             $PGYER_APP_NAME"
-    echo "appVersionNo        $PGYER_APP_VERSION_NO"
+    echo "appBuild            $PGYER_APP_BUILD"
     echo "appVersion          $PGYER_APP_VERSION"
     echo "packageName         $PGYER_APP_PACKAGE_NAME"
     echo "pgyer_icon_url      $PGYER_APP_ICON_URL"
@@ -410,9 +408,11 @@ function listFiles(){
 
 function findAndUploadApk() {
     local projectDir="$1"
-    local CHANGELOG="${2:-uploaded by shell script}"
-    local PGYER_TOKEN="$3"
-    local FIR_TOKEN="$4"
+    local changelog="$2"
+    local pgyerToken="$3"
+    local firToken="$4"
+
+    [[ -z "$pgyerToken" ]] && { echo "pgyerToken can't be empty"; return 1; }
 
     ### the $projectDir self is a file
     if [ -f "$projectDir" ]; then
@@ -420,7 +420,7 @@ function findAndUploadApk() {
             echo "Not a apk file"
             return 1;
         fi
-        uploadApkFile "$projectDir" "${CHANGELOG}" "$PGYER_TOKEN" "$FIR_TOKEN"
+        uploadApkFile "$projectDir" "$changelog" "$pgyerToken" "$firToken"
         return 0;
     fi
 
@@ -430,7 +430,7 @@ function findAndUploadApk() {
         local apkFileList="$(listFiles "$projectDir" "*/build/*.apk")"
         apkFileList=($apkFileList)
         for apkFile in ${apkFileList[@]}; do
-            uploadApkFile "$apkFile" "${CHANGELOG}" "$PGYER_TOKEN" "$FIR_TOKEN"
+            uploadApkFile "$apkFile" "$changelog" "$pgyerToken" "$firToken"
             [[ $? != 0 ]] && echo "upload apk failed: ${apkFile}" && return 1
         done
         return 0
@@ -446,6 +446,11 @@ function _capital_() {
 }
 
 function mainOfJenkinsCompile() {
+    local gitRepoUrl="$1"
+    local gitHttpAuth="$2"
+    local branch="$3"
+    local buildType="$4"
+
     echo "============================================================"
     curl myip.ipip.net 2>/dev/null
     echo "Current user: $USER"
@@ -457,8 +462,8 @@ function mainOfJenkinsCompile() {
         rm -rf $projectName
     fi
     
-    if [ -n "$GIT_HTTP_AUTH" ]; then
-        git clone -b "$branch" "https://${GIT_HTTP_AUTH}@${gitRepoUrl}" || { echo "git clone(HTTPS) failed"; return 1; }
+    if [ -n "$gitHttpAuth" ]; then
+        git clone -b "$branch" "https://${gitHttpAuth}@${gitRepoUrl}" || { echo "git clone(HTTPS) failed"; return 1; }
     else
         git clone -b "$branch" "${gitRepoUrl}" || { echo "git clone(SSH) failed"; return 1; }
     fi
@@ -481,30 +486,23 @@ function mainOfJenkinsCompile() {
     return $result
 }
 
-[[ "$1" == "-uploadOnly" ]] && {
-    [[ "$PGYER_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && PGYER_TOKEN="${BASH_REMATCH[1]}"
-    [[ "$FIR_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && FIR_TOKEN="${BASH_REMATCH[1]}"
-    findAndUploadApk "$2" "${3:-uploaded by shell script}" "$PGYER_TOKEN" "$FIR_TOKEN"
+[[ "$1" == "-uploadOnly" ]] && [ -f "$2" ] && {
+    findAndUploadApk "$2" "${3:-uploaded by shell script}" "$4" "$5"
     exit $?
 }
 
 # export JAVA_HOME="path to your JAVA_HOME"
 # export ANDROID_HOME="path to your ANDROID_HOME"
-# export GIT_HTTP_AUTH="your_git_username:your_git_password"
-# export PGYER_TOKEN=""
 
-# ### Parameters begin ###
-# # git仓库地址
-# export gitRepoUrl=""
-# # git分支名：master develop
-# export branch=""
-# # 构建类型/渠道
-# export buildType=""
-# # fir.im token，如果要上传到自己的fir上，换成自己的token就好。不想上传，则使此字段留空即可
-# export FIR_TOKEN=""
-# # changelog，会出现在下载页上的版本更新说明。支持中文。
-# export CHANGELOG="uploaded by shell script"
-# ### Parameters end ###
+### Parameters begin ###
+# gitRepoUrl="git仓库地址，以git@开头的地址或去除开头http://的地址"
+# gitHttpAuth="your_git_username:your_git_password"
+# branch="git分支名，如：master develop"
+# buildType="构建类型/渠道，如：devDebug"
+# export PGYER_TOKEN="你的pgyer token，必填项"
+# export FIR_TOKEN="如果要上传到自己的fir上，换成自己的token就好。不想上传，则使此字段留空即可"
+# export CHANGELOG="会出现在下载页上的版本更新说明。支持中文。"
+### Parameters end ###
 
-mainOfJenkinsCompile
+mainOfJenkinsCompile "$gitRepoUrl" "$gitHttpAuth" "$branch" "$buildType"
 exit $?
