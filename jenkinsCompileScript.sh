@@ -497,12 +497,12 @@ function mainOfJenkinsCompile() {
 ### Parameters begin ###
 # gitRepoUrl="git仓库地址，以git@开头的地址或去除开头http://的地址"
 # gitHttpAuth="your_git_username:your_git_password"
-# branch="git分支名，如：master develop"
-# buildType="构建类型/渠道，如：devDebug"
+# gitBranch="git分支名，如：master develop"
+# appBuildType="构建类型/渠道，如：devDebug"
 # export PGYER_TOKEN="你的pgyer token，必填项"
 # export FIR_TOKEN="如果要上传到自己的fir上，换成自己的token就好。不想上传，则使此字段留空即可"
 # export CHANGELOG="会出现在下载页上的版本更新说明。支持中文。"
 ### Parameters end ###
 
-mainOfJenkinsCompile "$gitRepoUrl" "$gitHttpAuth" "$branch" "$buildType"
+mainOfJenkinsCompile "$gitRepoUrl" "$gitHttpAuth" "$gitBranch" "$appBuildType"
 exit $?
