@@ -486,7 +486,7 @@ function mainOfJenkinsCompile() {
     return $result
 }
 
-[[ "$1" == "-uploadOnly" ]] && [ -f "$2" ] && {
+[[ "$1" == "-uploadOnly" ]] && {
     findAndUploadApk "$2" "${3:-uploaded by shell script}" "$4" "$5"
     exit $?
 }
