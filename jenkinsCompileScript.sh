@@ -457,7 +457,11 @@ function mainOfJenkinsCompile() {
         rm -rf $projectName
     fi
     
-    git clone -b $branch "https://${GIT_AUTH}@${gitRepoUrl}" || { echo "git clone failed"; return 1; }
+    if [ -z "$GIT_HTTP_AUTH" ]; then
+        git clone -b "$branch" "https://${GIT_HTTP_AUTH}@${gitRepoUrl}" || { echo "git clone(HTTPS) failed"; return 1; }
+    else
+        git clone -b "$branch" "${gitRepoUrl}" || { echo "git clone(SSH) failed"; return 1; }
+    fi
     
     local projectName=$(ls)
     pushd "$projectName" >/dev/null
@@ -486,7 +490,7 @@ function mainOfJenkinsCompile() {
 
 # export JAVA_HOME="path to your JAVA_HOME"
 # export ANDROID_HOME="path to your ANDROID_HOME"
-# export GIT_AUTH="your_git_username:your_git_password"
+# export GIT_HTTP_AUTH="your_git_username:your_git_password"
 # export PGYER_TOKEN=""
 
 # ### Parameters begin ###
