@@ -457,7 +457,7 @@ function mainOfJenkinsCompile() {
         rm -rf $projectName
     fi
     
-    if [ -z "$GIT_HTTP_AUTH" ]; then
+    if [ -n "$GIT_HTTP_AUTH" ]; then
         git clone -b "$branch" "https://${GIT_HTTP_AUTH}@${gitRepoUrl}" || { echo "git clone(HTTPS) failed"; return 1; }
     else
         git clone -b "$branch" "${gitRepoUrl}" || { echo "git clone(SSH) failed"; return 1; }
