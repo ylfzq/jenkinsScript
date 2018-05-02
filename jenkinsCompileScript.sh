@@ -508,5 +508,10 @@ function mainOfJenkinsCompile() {
 # export CHANGELOG="会出现在下载页上的版本更新说明。支持中文。"
 ### Parameters end ###
 
+# Set Build Name: #${BUILD_NUMBER}_${BUILD_USER}_${appBuildType}@${gitBranch}
+# Set jenkins user build variables
+# 构建后：Archive the artifacts: */app/build/outputs/apk/**/*.apk,  */app/build/outputs/mapping/**/mapping.txt, */dependencies.txt
+# 构建后：Set build description: SetBuildDescription:\s*(.+)   \1
+
 mainOfJenkinsCompile "$gitRepoUrl" "$gitHttpAuth" "$gitBranch" "$appBuildType"
 exit $?
