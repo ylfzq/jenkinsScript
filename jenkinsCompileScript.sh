@@ -81,12 +81,12 @@ function getJsonValuesByAwk() {
         unicodeToChar_p=hexToDec("80")    # Accum. bits
         unicodeToChar_s=""                # Output string
         while (c > unicodeToChar_o) {
-            unicodeToChar_s = sprintf("%c%s", or(hexToDec("80"), and(c, hexToDec("3f"))), unicodeToChar_s);
-            c = rshift(c, 6); 
+            unicodeToChar_s = sprintf("%c%s", myOr(hexToDec("80"), myAnd(c, hexToDec("3f"))), unicodeToChar_s);
+            c = myRshift(c, 6); 
             unicodeToChar_p += unicodeToChar_o + 1; 
-            unicodeToChar_o = rshift(unicodeToChar_o, 1);
+            unicodeToChar_o = myRshift(unicodeToChar_o, 1);
         }
-        printf("%c%s", or(unicodeToChar_p, c), unicodeToChar_s);
+        printf("%c%s", myOr(unicodeToChar_p, c), unicodeToChar_s);
     }
     function hexToDec(hexStr) {
         hextodec["0"]=0;  hextodec["1"]=1;  hextodec["2"]=2;  hextodec["3"]=3;
@@ -108,15 +108,15 @@ function getJsonValuesByAwk() {
         }
         return hexToDec_result;
     }
-    function rshift(num, count) {
+    function myRshift(num, count) {
         return int(num / 2^count)
     }
-    function and(num1, num2) {
+    function myAnd(num1, num2) {
         T["0", "0"]=0; T["0", "1"]=0;
         T["1", "0"]=0; T["1", "1"]=1;
         return bitTransform(num1, num2, T);
     }
-    function or(num1, num2) {
+    function myOr(num1, num2) {
         T["0", "0"]=0; T["0", "1"]=1;
         T["1", "0"]=1; T["1", "1"]=1;
         return bitTransform(num1, num2, T);
