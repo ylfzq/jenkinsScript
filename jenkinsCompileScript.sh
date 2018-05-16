@@ -513,5 +513,8 @@ function mainOfJenkinsCompile() {
 # 构建后：Archive the artifacts: */app/build/outputs/apk/**/*.apk,  */app/build/outputs/mapping/**/mapping.txt, */dependencies.txt
 # 构建后：Set build description: SetBuildDescription:\s*(.+)   \1
 
+echo "JAVA_HOME=$JAVA_HOME"
+echo "ANDROID_HOME=$ANDROID_HOME"
+echo "PATH=$PATH"
 mainOfJenkinsCompile "$gitRepoUrl" "$gitHttpAuth" "$gitBranch" "$appBuildType"
 exit $?
