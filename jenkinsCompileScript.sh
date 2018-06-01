@@ -358,7 +358,7 @@ function uploadApkFile() {
     else
         echo "Uploading apk to fir.im..."
         apiUploadToFir "$apkFile" \
-        "$FIR_TOKEN" \
+        "$firToken" \
         "$PGYER_APP_PACKAGE_NAME" \
         "$PGYER_APP_NAME" \
         "$PGYER_APP_VERSION" \
@@ -491,7 +491,9 @@ function mainOfJenkinsCompile() {
 }
 
 [[ "$1" == "-uploadOnly" ]] && {
-    findAndUploadApk "$2" "${3:-uploaded by shell script}" "$4" "$5"
+    ### You can make: alias uploadApk='bash /path/to/jenkinsCompileScript.sh -uploadOnly "pgyer_token" "fir_token"'
+    ### findAndUploadApk projectDir changelog pgyerToken firToken
+    findAndUploadApk "$4" "${5:-uploaded by shell script}" "$2" "$3"
     exit $?
 }
 
