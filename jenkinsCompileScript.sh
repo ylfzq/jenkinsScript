@@ -481,12 +481,6 @@ function mainOfJenkinsCompile() {
     local gitHttpAuth="$2"
     local branch="$3"
     local buildType="$4"
-
-    echo "============================================================"
-    curl myip.ipip.net 2>/dev/null
-    echo "Current user: $USER"
-    which python > /dev/null && python -V
-    echo "============================================================"
     
     local projectName="$(ls)"
     if [ -n "$projectName" ]; then
@@ -547,8 +541,16 @@ function mainOfJenkinsCompile() {
 # 构建后：Archive the artifacts: */app/build/outputs/apk/**/*.apk,  */app/build/outputs/mapping/**/mapping.txt, */dependencies.txt
 # 构建后：Set build description: SetBuildDescription:\s*(.+)   \1
 
+echo "============================================================"
+curl --version
+curl myip.ipip.net 2>/dev/null
+which python > /dev/null && python -V
+awk -version
+git --version
+echo "Current user: $USER"
 echo "JAVA_HOME=$JAVA_HOME"
 echo "ANDROID_HOME=$ANDROID_HOME"
 echo "PATH=$PATH"
+echo "============================================================"
 mainOfJenkinsCompile "$gitRepoUrl" "$gitHttpAuth" "$gitBranch" "$appBuildType"
 exit $?
