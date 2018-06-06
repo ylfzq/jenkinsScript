@@ -20,7 +20,7 @@ def printf(text):
     if isinstance(text, list) or isinstance(text, dict): 
         sys.stdout.write(json.dumps(text) + '\n')
     elif str(type(text)) == \"<type 'unicode'>\":
-        sys.stdout.write('\"' + text.encode('utf-8') + '\"\n')
+        printf(text.encode('utf-8')) # text.encode() return str
     elif isinstance(text, str):
         sys.stdout.write('\"' + text + '\"\n')
     elif isinstance(text, bool):
@@ -37,7 +37,7 @@ def findKey(obj, key):
             count += findKey(v, key)
     return count
 if findKey(json.load(sys.stdin), '$key') == 0:
-    printf('$defaultValue')
+    sys.stdout.write('$defaultValue\n')
     "
 }
 
