@@ -8,18 +8,26 @@ function getJsonValues() {
     fi
 }
 
+### @author lux feary
+###
+### 3 params: json, key, defaultValue
 function getJsonValuesByPython() {
     local key="$2"
-    echo "$1" | python -c "import json,sys;
+    local defaultValue="$3"
+    echo "$1" | python -c "
+import json,sys;
 def printf(text):
     sys.stdout.write(text.encode('utf-8') + '\n');
 def findKey(obj, key):
+    count = 0
     for (k,v) in obj.items():
         if k == key:
             printf(v if not isinstance(v, list) and not isinstance(v, dict) else json.dumps(v))
         elif isinstance(v, dict):
-            findKey(v, key)
-findKey(json.load(sys.stdin), '$key')
+            count += findKey(v, key)
+    return count
+if findKey(json.load(sys.stdin), '$key') == 0:
+    printf('$defaultValue')
     "
 }
 
