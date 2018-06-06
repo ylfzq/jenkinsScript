@@ -1,5 +1,28 @@
 #!/bin/bash
 
+function getJsonValues() {
+    if which python > /dev/null; then
+        getJsonValuesByPython "$@"
+    else
+        getJsonValuesByAwk "$@"
+    fi
+}
+
+function getJsonValuesByPython() {
+    local key="$2"
+    echo "$1" | python -c "import json,sys;
+def printf(text):
+    sys.stdout.write(text.encode('utf-8') + '\n');
+def findKey(obj, key):
+    for (k,v) in obj.items():
+        if k == key:
+            printf(v if not isinstance(v, list) and not isinstance(v, dict) else json.dumps(v))
+        elif isinstance(v, dict):
+            findKey(v, key)
+findKey(json.load(sys.stdin), '$key')
+    "
+}
+
 ### 方法简要说明：
 ### 1. 是先查找一个字符串：带双引号的key。如果没找到，则直接返回defaultValue。
 ### 2. 查找最近的冒号，找到后认为值的部分开始了，直到在层数上等于0时找到这3个字符：,}]。
@@ -186,9 +209,9 @@ function apiUploadToFir() {
     local resultJson=$(curl -X "POST" "https://api.fir.im/apps" -H "Content-Type: application/json" -d "{\"type\":\"${firAppType}\", \"bundle_id\":\"${appId}\", \"api_token\":\"${apiToken}\"}" 2>/dev/null)
 
     ### parse the 1st layer
-    local formMethod=$(getJsonValuesByAwk "$resultJson" "form_method" "POST" | trim '"')
-    local shortUrl=$(getJsonValuesByAwk "$resultJson" "short" | trim '"')
-    local cert="$(getJsonValuesByAwk "$resultJson" "cert")"
+    local formMethod=$(getJsonValues "$resultJson" "form_method" "POST" | trim '"')
+    local shortUrl=$(getJsonValues "$resultJson" "short" | trim '"')
+    local cert="$(getJsonValues "$resultJson" "cert")"
 
     [ -n "$shortUrl" ] || { 
         echo "Fetch upload token failed, please check your fir api token: $apiToken"
@@ -198,24 +221,24 @@ function apiUploadToFir() {
     local shortUrl="https://fir.im/$shortUrl"
 
     ### parse the cert layer
-    local cert_prefix=$(getJsonValuesByAwk "$cert" "prefix" | trim '"')
-    local cert_binary="$(getJsonValuesByAwk "$cert" "binary")"
-    local cert_icon="$(getJsonValuesByAwk "$cert" "icon")"
+    local cert_prefix=$(getJsonValues "$cert" "prefix" | trim '"')
+    local cert_binary="$(getJsonValues "$cert" "binary")"
+    local cert_icon="$(getJsonValues "$cert" "icon")"
 
     ### get icon upload params
-    local icon_key=$(getJsonValuesByAwk "$cert_icon" "key" | trim '"')
-    local icon_token=$(getJsonValuesByAwk "$cert_icon" "token" | trim '"')
-    local icon_uploadUrl=$(getJsonValuesByAwk "$cert_icon" "upload_url" | trim '"')
+    local icon_key=$(getJsonValues "$cert_icon" "key" | trim '"')
+    local icon_token=$(getJsonValues "$cert_icon" "token" | trim '"')
+    local icon_uploadUrl=$(getJsonValues "$cert_icon" "upload_url" | trim '"')
 
     ### get binary upload params
-    local binary_key=$(getJsonValuesByAwk "$cert_binary" "key" | trim '"')
-    local binary_token=$(getJsonValuesByAwk "$cert_binary" "token" | trim '"')
-    local binary_uploadUrl=$(getJsonValuesByAwk "$cert_binary" "upload_url" | trim '"')
+    local binary_key=$(getJsonValues "$cert_binary" "key" | trim '"')
+    local binary_token=$(getJsonValues "$cert_binary" "token" | trim '"')
+    local binary_uploadUrl=$(getJsonValues "$cert_binary" "upload_url" | trim '"')
 
     if [ -n "$appIcon" ]; then
         echo "Uploading icon to ${icon_uploadUrl}..."
         local resultJson=$(curl "$appIcon" 2>/dev/null | curl --progress-bar -X "$formMethod" -F "key=${icon_key}" -F "token=${icon_token}" -F "file=@-" ${icon_uploadUrl})
-        local isCompleted="$(getJsonValuesByAwk "$resultJson" "is_completed")"
+        local isCompleted="$(getJsonValues "$resultJson" "is_completed")"
         if [[ "$isCompleted" == "true" ]]; then
             echo "Upload icon success: $appIcon"
         else
@@ -238,7 +261,7 @@ function apiUploadToFir() {
 
         if [ -n "$checkIconPath" ]; then
             local resultJson=$(unzip -p ${appFile} "$checkIconPath" | curl --progress-bar -X "$formMethod" -F "key=${icon_key}" -F "token=${icon_token}" -F "file=@-" ${icon_uploadUrl})
-            local isCompleted="$(getJsonValuesByAwk "$resultJson" "is_completed")"
+            local isCompleted="$(getJsonValues "$resultJson" "is_completed")"
             if [[ "$isCompleted" == "true" ]]; then
                 echo "Upload icon success: $checkIconPath"
             else
@@ -251,11 +274,11 @@ function apiUploadToFir() {
 
     echo "Uploading Apk to ${binary_uploadUrl}..."
     local resultJson="$(curl --progress-bar -X "$formMethod" -F "key=${binary_key}" -F "token=${binary_token}" -F "file=@${appFile}" -F "${cert_prefix}name=${appName}" -F "${cert_prefix}version=${appVersion}" -F "${cert_prefix}build=${appBuild}" -F "${cert_prefix}changelog=${appChangelog}" ${binary_uploadUrl})"
-    local isCompleted=$(getJsonValuesByAwk "$resultJson" "is_completed")
+    local isCompleted=$(getJsonValues "$resultJson" "is_completed")
     if [[ "$isCompleted" == "true" ]]; then
         export FIR_RESULT="true"
         export FIR_SHORT_URL="$shortUrl"
-        export FIR_DIRECT_URL="$(getJsonValuesByAwk "$resultJson" "download_url" | trim '"')"
+        export FIR_DIRECT_URL="$(getJsonValues "$resultJson" "download_url" | trim '"')"
         return 0
     else
         export FIR_RESULT="$resultJson"
@@ -318,15 +341,15 @@ function apiUploadToPgyer() {
     #     }
     # }'
     
-    if [[ "$(getJsonValuesByAwk "$resultJson" "code" | trim '"')" == "0" ]]; then
+    if [[ "$(getJsonValues "$resultJson" "code" | trim '"')" == "0" ]]; then
         export PGYER_RESULT="true"
-        export PGYER_APP_NAME="$(getJsonValuesByAwk "$resultJson" "buildName" | trim '"')"
-        export PGYER_APP_BUILD="$(getJsonValuesByAwk "$resultJson" "buildVersionNo" | trim '"')"
-        export PGYER_APP_VERSION="$(getJsonValuesByAwk "$resultJson" "buildVersion" | trim '"')"
-        export PGYER_APP_PACKAGE_NAME="$(getJsonValuesByAwk "$resultJson" "buildIdentifier" | trim '"')"
-        export PGYER_APP_ICON_URL="https://www.pgyer.com/image/view/app_icons/$(getJsonValuesByAwk "$resultJson" "buildIcon" | trim '"')"
-        export PGYER_SHORT_URL="https://www.pgyer.com/$(getJsonValuesByAwk "$resultJson" "buildShortcutUrl" | trim '"')"
-        export PGYER_QRCODE_URL="$(getJsonValuesByAwk "$resultJson" "buildQRCodeURL" | trim '"')"
+        export PGYER_APP_NAME="$(getJsonValues "$resultJson" "buildName" | trim '"')"
+        export PGYER_APP_BUILD="$(getJsonValues "$resultJson" "buildVersionNo" | trim '"')"
+        export PGYER_APP_VERSION="$(getJsonValues "$resultJson" "buildVersion" | trim '"')"
+        export PGYER_APP_PACKAGE_NAME="$(getJsonValues "$resultJson" "buildIdentifier" | trim '"')"
+        export PGYER_APP_ICON_URL="https://www.pgyer.com/image/view/app_icons/$(getJsonValues "$resultJson" "buildIcon" | trim '"')"
+        export PGYER_SHORT_URL="https://www.pgyer.com/$(getJsonValues "$resultJson" "buildShortcutUrl" | trim '"')"
+        export PGYER_QRCODE_URL="$(getJsonValues "$resultJson" "buildQRCodeURL" | trim '"')"
         return 0;
     else
         export PGYER_RESULT="$resultJson"
@@ -454,6 +477,7 @@ function mainOfJenkinsCompile() {
     echo "============================================================"
     curl myip.ipip.net 2>/dev/null
     echo "Current user: $USER"
+    which python > /dev/null && python -V
     echo "============================================================"
     
     local projectName="$(ls)"
