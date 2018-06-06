@@ -17,12 +17,22 @@ function getJsonValuesByPython() {
     echo "$1" | python -c "
 import json,sys;
 def printf(text):
-    sys.stdout.write(text.encode('utf-8') + '\n');
+    if isinstance(text, list) or isinstance(text, dict): 
+        sys.stdout.write(json.dumps(text) + '\n')
+    elif str(type(text)) == \"<type 'unicode'>\":
+        sys.stdout.write('\"' + text.encode('utf-8') + '\"\n')
+    elif isinstance(text, str):
+        sys.stdout.write('\"' + text + '\"\n')
+    elif isinstance(text, bool):
+        sys.stdout.write('true' if text else 'false' + '\n')
+    else:
+        sys.stdout.write(str(text) + '\n')
 def findKey(obj, key):
     count = 0
     for (k,v) in obj.items():
         if k == key:
-            printf(v if not isinstance(v, list) and not isinstance(v, dict) else json.dumps(v))
+            count += 1
+            printf(v)
         elif isinstance(v, dict):
             count += findKey(v, key)
     return count
@@ -330,7 +340,7 @@ function apiUploadToPgyer() {
     #         "buildType":"2",                                  // 应用类型（1:iOS; 2:Android）
     #         "buildIsFirst":"0",                               // 是否是第一个App（1:是; 2:否）
     #         "buildIsLastest":"1",                             // 是否是最新版（1:是; 2:否）
-    #         "buildFileKey":"04d67f7d1xxxx59ad25xxxxd333104ea.apk",    
+    #         "buildFileKey":"04d67f7d1xxxx59ad25xxxxd333104ea.apk",
     #         "buildFileName":"app-dev-official-debug.apk",
     #         "buildFileSize":"2827486",                        // App 文件大小
     #         "buildName":"ZqDemo",                             // 应用名称
@@ -348,7 +358,7 @@ function apiUploadToPgyer() {
     #         "buildQRCodeURL":"https:\/\/www.pgyer.com\/app\/qrcodeHistory\/9a5e3f712e679ef704af6ea808d297d18a603a49d3113b309510151e523ab990"  // 应用二维码地址
     #     }
     # }'
-    
+
     if [[ "$(getJsonValues "$resultJson" "code" | trim '"')" == "0" ]]; then
         export PGYER_RESULT="true"
         export PGYER_APP_NAME="$(getJsonValues "$resultJson" "buildName" | trim '"')"
@@ -466,7 +476,7 @@ function findAndUploadApk() {
         done
         return 0
     fi
-    
+
     return 1
 }
 
@@ -481,13 +491,13 @@ function mainOfJenkinsCompile() {
     local gitHttpAuth="$2"
     local branch="$3"
     local buildType="$4"
-    
+
     local projectName="$(ls)"
     if [ -n "$projectName" ]; then
         echo "Found old source dir($projectName), removing it..."
         rm -rf $projectName
     fi
-    
+
     if [ "${gitRepoUrl:0:4}" == "git@" ]; then
         git clone -b "$branch" "${gitRepoUrl}" || { echo "git clone(SSH) failed"; return 1; }
     elif [ "${gitRepoUrl:0:8}" == "https://" ]; then
@@ -497,14 +507,14 @@ function mainOfJenkinsCompile() {
         [ -z "$gitHttpAuth" ] && { echo "git http auth is empty"; return 1; }
         git clone -b "$branch" "http://${gitHttpAuth}@${gitRepoUrl:7}" || { echo "git clone(HTTP) failed"; return 1; }
     fi
-    
+
     local projectName=$(ls)
     pushd "$projectName" >/dev/null
     echo "Generating dependency tree..."
     ./gradlew -q app:dependencies --configuration ${buildType}CompileClasspath >dependencies.txt
     cat dependencies.txt
     ./gradlew clean assemble$(echo ${buildType} | _capital_) || { echo "Build failed"; return 4; }
-    
+
     [[ "$PGYER_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && PGYER_TOKEN="${BASH_REMATCH[1]}"
     [[ "$FIR_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && FIR_TOKEN="${BASH_REMATCH[1]}"
 
