@@ -375,24 +375,129 @@ function apiUploadToPgyer() {
     fi
 }
 
-### 因为fir.im需要的上传参数太多，脚本很难自动获取，因此先上传到pgyer.com，利用pgyer上传成功后的返回值给fir.im的接口传参。
+function apiUploadToReiko() {
+    local appFile="$1"
+    local apiToken="$2"
+    local appChangelog="$3"
+    local appPassword="$4"
+
+    unset REIKO_RESULT
+    unset REIKO_APP_NAME
+    unset REIKO_APP_BUILD
+    unset REIKO_APP_VERSION
+    unset REIKO_APP_PACKAGE_NAME
+    unset REIKO_APP_ICON_URL
+    unset REIKO_SHORT_URL
+    unset REIKO_QRCODE_URL
+
+    local resultJson=$(curl -k --progress-bar -H "x-reiko-api-token:${apiToken}" -F "file=@${appFile}" -F "extraInfo=[{\"key\": \"changelog\", \"value\": \"${appChangelog}\"}]" https://reiko.souche-inc.com/api/v2/package/upload)
+    ### example json
+    # local resultJson='{
+    #     "code": 200,
+    #     "success": true,
+    #     "msg": "success",
+    #     "data": {
+    #         "packageId": 43,
+    #         "appId": 27,
+    #         "appName": "演示App",
+    #         "packageName": "zq.library.zqdemo",
+    #         "versionCode": "1",
+    #         "versionName": "1.0",
+    #         "downloadTimes": 0,
+    #         "icon": "https://souche-res.oss-cn-hangzhou.aliyuncs.com/reiko/72fb8f5117c5d1357d1813c6d72d876c1530093264284.png",
+    #         "downloadUrl": "https://reiko.souche-inc.com/api/v1/download/updateDownLoadTimes?packageId=43",
+    #         "packageType": 0,
+    #         "visibility": true,
+    #         "size": 2832763,
+    #         "md5": "72fb8f5117c5d1357d1813c6d72d876c",
+    #         "env": 1,
+    #         "createdAt": "2018-06-27T08:42:37.000Z",
+    #         "updatedAt": "2018-06-27T09:54:25.000Z",
+    #         "extraInfo": [
+    #             {
+    #                 "key": "changelog",
+    #                 "value": "test"
+    #             }
+    #         ],
+    #         "shortUrl": "https://reiko.souche-inc.com/#/download/meab",
+    #         "packageDownLoadPage": "https://reiko.souche-inc.com/#/download/meab?packageId=43",
+    #         "qrcode": "https://qrcode.tec-it.com/API/QRCode?data=https%253A%252F%252Freiko.souche-inc.com%252F%2523%252Fdownload%252Fmeab%253FpackageId%253D43"
+    #     }
+    # }'
+    
+    if [[ "$(getJsonValues "$resultJson" "code" | trim '"')" == "200" ]]; then
+        export REIKO_RESULT="true"
+        export REIKO_APP_NAME="$(getJsonValues "$resultJson" "appName" | trim '"')"
+        export REIKO_APP_BUILD="$(getJsonValues "$resultJson" "versionCode" | trim '"')"
+        export REIKO_APP_VERSION="$(getJsonValues "$resultJson" "versionName" | trim '"')"
+        export REIKO_APP_PACKAGE_NAME="$(getJsonValues "$resultJson" "packageName" | trim '"')"
+        export REIKO_APP_ICON_URL="$(getJsonValues "$resultJson" "icon" | trim '"')"
+        export REIKO_SHORT_URL="$(getJsonValues "$resultJson" "packageDownLoadPage" | trim '"')"
+        export REIKO_QRCODE_URL="$(getJsonValues "$resultJson" "qrcode" | trim '"')"
+        return 0;
+    else
+        export REIKO_RESULT="$resultJson"
+        return 1;
+    fi
+}
+
 function uploadApkFile() {
     local apkFile="$1"
     local appChangelog="$2"
-    local pgyerToken="$3"
-    local firToken="$4"
-
-    [[ -z "$pgyerToken" ]] && { echo "pgyerToken can't be empty"; return 1; }
+    local reikoToken="$3"
+    local pgyerToken="$4"
+    local firToken="$5"
 
     echo "APK file path: $apkFile"
 
-    echo "Uploading apk to pgyer.com..."
-    apiUploadToPgyer "$apkFile" \
-    "$pgyerToken" \
-    "$appChangelog"
+    if [ -z "$reikoToken" ]; then
+        echo "未指定reiko的上传token或格式不正确"
+    else
+        echo "Uploading apk to reiko.souche-inc.com..."
+        apiUploadToReiko "$apkFile" \
+        "$reikoToken" \
+        "$appChangelog"
 
-    [[ "$PGYER_RESULT" == "true" ]] || { echo "Upload to pgyer failed: $PGYER_RESULT"; return 1; }
+        if [[ "$REIKO_RESULT" != "true" ]]; then
+            echo "上传reiko失败：$REIKO_RESULT"
+        fi
+    fi
 
+    if [ -z "$pgyerToken" ]; then
+        echo "未指定pgyer.com的上传token或格式不正确"
+    else
+        echo "Uploading apk to pgyer.com..."
+        apiUploadToPgyer "$apkFile" \
+        "$pgyerToken" \
+        "$appChangelog"
+
+        if [[ "$PGYER_RESULT" != "true" ]]; then
+            echo "上传pgyer失败：$PGYER_RESULT"
+        fi
+    fi
+
+    if [[ "$REIKO_RESULT" == "true" ]]; then
+        local appPackageName="$REIKO_APP_PACKAGE_NAME"
+        local appName="$REIKO_APP_NAME"
+        local appVersion="$REIKO_APP_VERSION"
+        local appBuild="$REIKO_APP_BUILD"
+        local appIconUrl="$REIKO_APP_ICON_URL"
+    elif [[ "$PGYER_RESULT" == "true" ]]; then
+        local appPackageName="$PGYER_APP_PACKAGE_NAME"
+        local appName="$PGYER_APP_NAME"
+        local appVersion="$PGYER_APP_VERSION"
+        local appBuild="$PGYER_APP_BUILD"
+        local appIconUrl="$PGYER_APP_ICON_URL"
+    else
+        if [ -z "$firToken" ]; then
+            echo "所有上传都已失败，没有可用的下载链接"
+        else
+            echo "上传reiko和pgyer都失败了，无法上传fir"
+        fi
+        return 1
+    fi
+
+    # 因为fir.im需要的上传参数太多，脚本很难自动获取，因此如果光指定firToken是没用的，需要指定pgyerToken或reikoToken
     if [ -z "$firToken" ]; then
         ### firToken为空，就不上传fir，但仍认为是上传成功
         echo "未指定fir.im的上传token或格式不正确"
@@ -400,11 +505,11 @@ function uploadApkFile() {
         echo "Uploading apk to fir.im..."
         apiUploadToFir "$apkFile" \
         "$firToken" \
-        "$PGYER_APP_PACKAGE_NAME" \
-        "$PGYER_APP_NAME" \
-        "$PGYER_APP_VERSION" \
-        "$PGYER_APP_BUILD" \
-        "$PGYER_APP_ICON_URL" \
+        "$appPackageName" \
+        "$appName" \
+        "$appVersion" \
+        "$appBuild" \
+        "$appIconUrl" \
         "$appChangelog"
 
         if [[ "$FIR_RESULT" != "true" ]]; then
@@ -414,13 +519,19 @@ function uploadApkFile() {
     fi
 
     echo "==============================================================================="
-    echo "appName             $PGYER_APP_NAME"
-    echo "appBuild            $PGYER_APP_BUILD"
-    echo "appVersion          $PGYER_APP_VERSION"
-    echo "packageName         $PGYER_APP_PACKAGE_NAME"
+    echo "appName             $appName"
+    echo "appBuild            $appBuild"
+    echo "appVersion          $appVersion"
+    echo "packageName         $appPackageName"
+
+    echo "reiko_icon_url      $REIKO_APP_ICON_URL"
+    echo "reiko_short_url     $REIKO_SHORT_URL"
+    echo "reiko_qrcode_url    $REIKO_QRCODE_URL"
+
     echo "pgyer_icon_url      $PGYER_APP_ICON_URL"
     echo "pgyer_short_url     $PGYER_SHORT_URL"
     echo "pgyer_qrcode_url    $PGYER_QRCODE_URL"
+
     echo "fir_short_url       $FIR_SHORT_URL"
     echo "fir_direct_url      $FIR_DIRECT_URL"
     echo "==============================================================================="
@@ -450,10 +561,9 @@ function listFiles(){
 function findAndUploadApk() {
     local projectDir="$1"
     local changelog="$2"
-    local pgyerToken="$3"
-    local firToken="$4"
-
-    [[ -z "$pgyerToken" ]] && { echo "pgyerToken can't be empty"; return 1; }
+    local reikoToken="$3"
+    local pgyerToken="$4"
+    local firToken="$5"
 
     ### the $projectDir self is a file
     if [ -f "$projectDir" ]; then
@@ -461,7 +571,7 @@ function findAndUploadApk() {
             echo "Not a apk file"
             return 1;
         fi
-        uploadApkFile "$projectDir" "$changelog" "$pgyerToken" "$firToken"
+        uploadApkFile "$projectDir" "$changelog" "$reikoToken" "$pgyerToken" "$firToken"
         return 0;
     fi
 
@@ -471,7 +581,7 @@ function findAndUploadApk() {
         local apkFileList="$(listFiles "$projectDir" "*/build/*.apk")"
         apkFileList=($apkFileList)
         for apkFile in ${apkFileList[@]}; do
-            uploadApkFile "$apkFile" "$changelog" "$pgyerToken" "$firToken"
+            uploadApkFile "$apkFile" "$changelog" "$reikoToken" "$pgyerToken" "$firToken"
             [[ $? != 0 ]] && echo "upload apk failed: ${apkFile}" && return 1
         done
         return 0
@@ -495,7 +605,7 @@ function mainOfJenkinsCompile() {
     local projectName="$(ls)"
     if [ -n "$projectName" ]; then
         echo "Found old source dir($projectName), removing it..."
-        rm -rf $projectName
+        rm -rf "$projectName"
     fi
 
     if [ "${gitRepoUrl:0:4}" == "git@" ]; then
@@ -510,26 +620,42 @@ function mainOfJenkinsCompile() {
 
     local projectName=$(ls)
     pushd "$projectName" >/dev/null
+    echo "Git commit id: $(git rev-parse HEAD)" >dependencies.txt
     echo "Generating dependency tree..."
-    ./gradlew -q app:dependencies --configuration ${buildType}CompileClasspath >dependencies.txt
+    ./gradlew -q app:dependencies --configuration ${buildType}CompileClasspath >>dependencies.txt
     cat dependencies.txt
     ./gradlew clean assemble$(echo ${buildType} | _capital_) || { echo "Build failed"; return 4; }
 
+    [[ "$REIKO_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && REIKO_TOKEN="${BASH_REMATCH[1]}"
     [[ "$PGYER_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && PGYER_TOKEN="${BASH_REMATCH[1]}"
     [[ "$FIR_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && FIR_TOKEN="${BASH_REMATCH[1]}"
 
-    findAndUploadApk "$PWD" "#${BUILD_NUMBER}_${BUILD_USER}_${buildType}@${branch}: ${CHANGELOG}" "$PGYER_TOKEN" "$FIR_TOKEN"
+    findAndUploadApk "$PWD" "#${BUILD_NUMBER}_${BUILD_USER}_${buildType}@${branch}: ${CHANGELOG}" "$REIKO_TOKEN" "$PGYER_TOKEN" "$FIR_TOKEN"
     local result="$?"
     popd >/dev/null
 
-    echo "SetBuildDescription: <a href='$FIR_SHORT_URL' target='_blank'>$FIR_SHORT_URL</a><br/><a href='$PGYER_SHORT_URL' target='_blank'><img src='$PGYER_QRCODE_URL' alt='在当前页打开apk下载页'/></a><br/>"
+    echo "SetBuildDescription: <a href='$FIR_SHORT_URL' target='_blank'>$FIR_SHORT_URL</a><br/><a href='$REIKO_SHORT_URL' target='_blank'><img src='$REIKO_QRCODE_URL' alt='在当前页打开apk下载页'/></a><br/>"
     return $result
 }
 
-[[ "$1" == "-uploadOnly" ]] && {
-    ### You can make: alias uploadApk='bash /path/to/jenkinsCompileScript.sh -uploadOnly "pgyer_token" "fir_token"'
-    ### findAndUploadApk projectDir changelog pgyerToken firToken
-    findAndUploadApk "$4" "${5:-uploaded by shell script}" "$2" "$3"
+[[ "$1" == "-upload" ]] && {
+    ### You can make: alias uploadApk='bash /path/to/jenkinsCompileScript.sh -uploadOnly /path/to/apk changelog'
+    ### findAndUploadApk projectDir changelog reikoToken pgyerToken firToken
+    #
+    ### usage: uploadApkTo reiko,fir /path/to/apk
+    # function uploadApkTo() {
+    #     if [[ $1 == *reiko* ]]; then
+    #         export REIKO_TOKEN=your_token_here
+    #     fi
+    #     if [[ $1 == *pgyer* ]]; then
+    #         export PGYER_TOKEN=your_token_here
+    #     fi
+    #     if [[ $1 == *fir* ]]; then
+    #         export FIR_TOKEN=your_token_here
+    #     fi
+    #     bash /path/to/jenkinsCompileScript.sh -upload "$2" "$3"
+    # }
+    findAndUploadApk "$2" "${3:-uploaded by shell script}" "$REIKO_TOKEN" "$PGYER_TOKEN" "$FIR_TOKEN"
     exit $?
 }
 
@@ -541,7 +667,8 @@ function mainOfJenkinsCompile() {
 # gitHttpAuth="your_git_username:your_git_password"
 # gitBranch="git分支名，如：master, develop"
 # appBuildType="构建类型/渠道，如：devDebug"
-# export PGYER_TOKEN="你的pgyer token，必填项"
+# export REIKO_TOKEN="你的reiko token，必填项"
+# export PGYER_TOKEN="你的pgyer token，选填项"
 # export FIR_TOKEN="如果要上传到自己的fir上，换成自己的token就好。不想上传，则使此字段留空即可"
 # export CHANGELOG="会出现在下载页上的版本更新说明。支持中文。"
 ### Parameters end ###
