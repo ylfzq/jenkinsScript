@@ -618,9 +618,10 @@ function mainOfJenkinsCompile() {
         git clone -b "$branch" "http://${gitHttpAuth}@${gitRepoUrl:7}" || { echo "git clone(HTTP) failed"; return 1; }
     fi
 
-    local projectName=$(ls)
+    local projectName="$(ls)"
     pushd "$projectName" >/dev/null
-    echo "Git commit id: $(git rev-parse HEAD)" >dependencies.txt
+    local gitCommitId="$(git rev-parse HEAD)"
+    echo "Git commit id: $gitCommitId" >dependencies.txt
     echo "Generating dependency tree..."
     ./gradlew -q app:dependencies --configuration ${buildType}CompileClasspath >>dependencies.txt
     cat dependencies.txt
@@ -630,11 +631,11 @@ function mainOfJenkinsCompile() {
     [[ "$PGYER_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && PGYER_TOKEN="${BASH_REMATCH[1]}"
     [[ "$FIR_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && FIR_TOKEN="${BASH_REMATCH[1]}"
 
-    findAndUploadApk "$PWD" "#${BUILD_NUMBER}_${BUILD_USER}_${buildType}@${branch}: ${CHANGELOG}" "$REIKO_TOKEN" "$PGYER_TOKEN" "$FIR_TOKEN"
+    findAndUploadApk "$PWD" "#${BUILD_NUMBER}_${BUILD_USER}_${buildType}@${branch}-${gitCommitId}: ${CHANGELOG}" "$REIKO_TOKEN" "$PGYER_TOKEN" "$FIR_TOKEN"
     local result="$?"
     popd >/dev/null
 
-    echo "SetBuildDescription: <a href='$FIR_SHORT_URL' target='_blank'>$FIR_SHORT_URL</a><br/><a href='$PGYER_SHORT_URL' target='_blank'>$PGYER_SHORT_URL</a><br/><a href='$REIKO_SHORT_URL' target='_blank'><img src='$REIKO_QRCODE_URL' alt='在当前页打开apk下载页' width='200'/></a><br/>"
+    echo "SetBuildDescription: <a href='$FIR_SHORT_URL' target='_blank'>$FIR_SHORT_URL</a><br/><a href='$PGYER_SHORT_URL' target='_blank'>$PGYER_SHORT_URL</a><br/><a href='$REIKO_SHORT_URL' target='_blank'>$REIKO_SHORT_URL</a><br/><a href='$REIKO_SHORT_URL' target='_blank'><img src='$REIKO_QRCODE_URL' alt='在当前页打开apk下载页' width='200'/></a><br/>"
     return $result
 }
 
