@@ -635,7 +635,7 @@ function mainOfJenkinsCompile() {
     local result="$?"
     popd >/dev/null
 
-    echo "SetBuildDescription: <a href='$FIR_SHORT_URL' target='_blank'>$FIR_SHORT_URL</a><br/><a href='$PGYER_SHORT_URL' target='_blank'>$PGYER_SHORT_URL</a><br/><a href='$REIKO_SHORT_URL' target='_blank'>$REIKO_SHORT_URL</a><br/><a href='$REIKO_SHORT_URL' target='_blank'><img src='$REIKO_QRCODE_URL' alt='在当前页打开apk下载页' width='200'/></a><br/>"
+    echo "SetBuildDescription: <a href='$REIKO_SHORT_URL' target='_blank'><img src='$REIKO_QRCODE_URL' alt='在当前页打开apk下载页' width='200'/></a><br/><a href='$REIKO_SHORT_URL' target='_blank'>$REIKO_SHORT_URL</a><br/><a href='$PGYER_SHORT_URL' target='_blank'>$PGYER_SHORT_URL</a><br/><a href='$FIR_SHORT_URL' target='_blank'>$FIR_SHORT_URL</a><br/>"
     return $result
 }
 
