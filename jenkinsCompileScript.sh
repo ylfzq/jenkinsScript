@@ -680,15 +680,27 @@ function mainOfJenkinsCompile() {
 # 构建后：Set build description: SetBuildDescription:\s*(.+)   \1
 
 echo "============================================================"
+case "$(uname -s)" in
+    "Darwin")   #Mac
+        uname -a
+        awk -version
+    ;;
+    "Linux")    #Linux
+        lsb_release -a 2>/dev/null | grep "Description:" | awk -F\\t '{print $2}'
+        awk -W version
+    ;;
+    *)
+        echo "Unknown kernel name $(uname -s)"
+    ;;
+esac
 curl --version
-curl myip.ipip.net 2>/dev/null
-which python > /dev/null && python -V
-awk -version
 git --version
+which python >/dev/null && python -V
 echo "Current user: $USER"
 echo "JAVA_HOME=$JAVA_HOME"
 echo "ANDROID_HOME=$ANDROID_HOME"
 echo "PATH=$PATH"
+curl myip.ipip.net 2>/dev/null
 echo "============================================================"
 mainOfJenkinsCompile "$gitRepoUrl" "$gitHttpAuth" "$gitBranch" "$appBuildType"
 exit $?
