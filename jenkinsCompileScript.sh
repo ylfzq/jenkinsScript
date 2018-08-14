@@ -623,9 +623,9 @@ function mainOfJenkinsCompile() {
     local gitCommitId="$(git rev-parse HEAD)"
     echo "Git commit id: $gitCommitId" >dependencies.txt
     echo "Generating dependency tree..."
-    ./gradlew -q app:dependencies --configuration ${buildType}CompileClasspath >>dependencies.txt
+    ./gradlew $additionalGradleOptions -q app:dependencies --configuration ${buildType}CompileClasspath >>dependencies.txt
     cat dependencies.txt
-    ./gradlew clean assemble$(echo ${buildType} | _capital_) || { echo "Build failed"; return 4; }
+    ./gradlew $additionalGradleOptions clean assemble$(echo ${buildType} | _capital_) || { echo "Build failed"; return 4; }
 
     [[ "$REIKO_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && REIKO_TOKEN="${BASH_REMATCH[1]}"
     [[ "$PGYER_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && PGYER_TOKEN="${BASH_REMATCH[1]}"
@@ -668,6 +668,7 @@ function mainOfJenkinsCompile() {
 # gitHttpAuth="your_git_username:your_git_password"
 # gitBranch="git分支名，如：master, develop"
 # appBuildType="构建类型/渠道，如：devDebug"
+# additionalGradleOptions="-DsocksProxyHost=127.0.0.1 -DsocksProxyPort=1080"
 # export REIKO_TOKEN="你的reiko token，必填项"
 # export PGYER_TOKEN="你的pgyer token，选填项"
 # export FIR_TOKEN="如果要上传到自己的fir上，换成自己的token就好。不想上传，则使此字段留空即可"
