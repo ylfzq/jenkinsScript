@@ -378,8 +378,9 @@ function apiUploadToPgyer() {
 function apiUploadToReiko() {
     local appFile="$1"
     local apiToken="$2"
-    local appChangelog="$3"
-    local appPassword="$4"
+    local apiIsMine="$3"
+    local appChangelog="$4"
+    local appPassword="$5"
 
     unset REIKO_RESULT
     unset REIKO_APP_NAME
@@ -390,7 +391,7 @@ function apiUploadToReiko() {
     unset REIKO_SHORT_URL
     unset REIKO_QRCODE_URL
 
-    local resultJson=$(curl -k --progress-bar -H "x-reiko-api-token:${apiToken}" -F "file=@${appFile}" -F "extraInfo=[{\"key\": \"changelog\", \"value\": \"${appChangelog}\"}]" https://reiko.souche-inc.com/api/v2/package/upload)
+    local resultJson=$(curl -k --progress-bar -H "x-reiko-api-token:${apiToken}" -F "file=@${appFile}" -F "isMine=${apiIsMine}" -F "extraInfo=[{\"key\": \"changelog\", \"value\": \"${appChangelog}\"}]" https://reiko.souche-inc.com/api/v2/package/upload)
     ### example json
     # local resultJson='{
     #     "code": 200,
@@ -445,8 +446,9 @@ function uploadApkFile() {
     local apkFile="$1"
     local appChangelog="$2"
     local reikoToken="$3"
-    local pgyerToken="$4"
-    local firToken="$5"
+    local reikoIsMine="$4"
+    local pgyerToken="$5"
+    local firToken="$6"
 
     echo "APK file path: $apkFile"
 
@@ -456,6 +458,7 @@ function uploadApkFile() {
         echo "Uploading apk to reiko.souche-inc.com..."
         apiUploadToReiko "$apkFile" \
         "$reikoToken" \
+        "$reikoIsMine" \
         "$appChangelog"
 
         if [[ "$REIKO_RESULT" != "true" ]]; then
@@ -562,8 +565,9 @@ function findAndUploadApk() {
     local projectDir="$1"
     local changelog="$2"
     local reikoToken="$3"
-    local pgyerToken="$4"
-    local firToken="$5"
+    local reikoIsMine="$4"
+    local pgyerToken="$5"
+    local firToken="$6"
 
     ### the $projectDir self is a file
     if [ -f "$projectDir" ]; then
@@ -571,7 +575,7 @@ function findAndUploadApk() {
             echo "Not a apk file"
             return 1;
         fi
-        uploadApkFile "$projectDir" "$changelog" "$reikoToken" "$pgyerToken" "$firToken"
+        uploadApkFile "$projectDir" "$changelog" "$reikoToken" "$reikoIsMine" "$pgyerToken" "$firToken"
         return 0;
     fi
 
@@ -581,7 +585,7 @@ function findAndUploadApk() {
         local apkFileList="$(listFiles "$projectDir" "*/build/*.apk")"
         apkFileList=($apkFileList)
         for apkFile in ${apkFileList[@]}; do
-            uploadApkFile "$apkFile" "$changelog" "$reikoToken" "$pgyerToken" "$firToken"
+            uploadApkFile "$apkFile" "$changelog" "$reikoToken" "$reikoIsMine" "$pgyerToken" "$firToken"
             [[ $? != 0 ]] && echo "upload apk failed: ${apkFile}" && return 1
         done
         return 0
@@ -631,7 +635,7 @@ function mainOfJenkinsCompile() {
     [[ "$PGYER_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && PGYER_TOKEN="${BASH_REMATCH[1]}"
     [[ "$FIR_TOKEN" =~ \(([0-9a-zA-Z]{32})\) ]] && FIR_TOKEN="${BASH_REMATCH[1]}"
 
-    findAndUploadApk "$PWD" "#${BUILD_NUMBER}_${BUILD_USER}_${buildType}@${branch}-${gitCommitId}: ${CHANGELOG}" "$REIKO_TOKEN" "$PGYER_TOKEN" "$FIR_TOKEN"
+    findAndUploadApk "$PWD" "#${BUILD_NUMBER}_${BUILD_USER}_${buildType}@${branch}-${gitCommitId}: ${CHANGELOG}" "$REIKO_TOKEN" "$REIKO_IS_MINE" "$PGYER_TOKEN" "$FIR_TOKEN"
     local result="$?"
     popd >/dev/null
 
@@ -641,7 +645,7 @@ function mainOfJenkinsCompile() {
 
 [[ "$1" == "-upload" ]] && {
     ### You can make: alias uploadApk='bash /path/to/jenkinsCompileScript.sh -uploadOnly /path/to/apk changelog'
-    ### findAndUploadApk projectDir changelog reikoToken pgyerToken firToken
+    ### findAndUploadApk projectDir changelog reikoToken reikoIsMine pgyerToken firToken
     #
     ### usage: uploadApkTo reiko,fir /path/to/apk
     # function uploadApkTo() {
@@ -656,7 +660,7 @@ function mainOfJenkinsCompile() {
     #     fi
     #     bash /path/to/jenkinsCompileScript.sh -upload "$2" "$3"
     # }
-    findAndUploadApk "$2" "${3:-uploaded by shell script}" "$REIKO_TOKEN" "$PGYER_TOKEN" "$FIR_TOKEN"
+    findAndUploadApk "$2" "${3:-uploaded by shell script}" "$REIKO_TOKEN" "$REIKO_IS_MINE" "$PGYER_TOKEN" "$FIR_TOKEN"
     exit $?
 }
 
@@ -670,6 +674,7 @@ function mainOfJenkinsCompile() {
 # appBuildType="构建类型/渠道，如：devDebug"
 # additionalGradleOptions="-DsocksProxyHost=127.0.0.1 -DsocksProxyPort=1080"
 # export REIKO_TOKEN="你的reiko token，必填项"
+# export REIKO_IS_MINE=false
 # export PGYER_TOKEN="你的pgyer token，选填项"
 # export FIR_TOKEN="如果要上传到自己的fir上，换成自己的token就好。不想上传，则使此字段留空即可"
 # export CHANGELOG="会出现在下载页上的版本更新说明。支持中文。"
